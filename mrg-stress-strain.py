@@ -75,6 +75,10 @@ parser.add_argument('-V', '--verbose',
                     action='store_true',
                     dest='verbose',
                     help='Be verbose')
+parser.add_argument('-R', '--recursive',
+                    action='store_true',
+                    dest='recursive',
+                    help='Recursively make plots')
 parser.add_argument('-v', '--version',
                     action='version',
                     version='%(prog)s ' + version)
@@ -108,7 +112,7 @@ if args.all:
     write_message('Skipping check for .' + ext['csv'] + ' extension...\n')
 
 def check_for_csv(filename):
-    if os.path.isdir(filename):
+    if os.path.isdir(filename) and args.recursive:
         for subfile in os.listdir(filename):
             check_for_csv(os.path.join(filename,subfile))
     else:
@@ -193,19 +197,28 @@ else:
         data['load'] = []
         data['stroke'] = []
         data['strain'] = []
-        for line in csv:
-            split = line.split('\t')
-            this_time = float(split[0])
-            if len(data['datetime']):
-                this_time -= start_time
-                this_time *= 60*60*24
-            else:
-                start_time = this_time
-                this_time = 0
-            data['datetime'].append(this_time)
-            data['load'].append(split[1])
-            data['stroke'].append(split[2])
-            data['strain'].append(split[4])
+        try:
+            for line in csv:
+                split = line.split('\t')
+                this_time = float(split[0])
+                if len(data['datetime']):
+                    this_time -= start_time
+                    this_time *= 60*60*24
+                else:
+                    start_time = this_time
+                    this_time = 0
+                data['datetime'].append(this_time)
+                data['load'].append(split[1])
+                data['stroke'].append(split[2])
+                data['strain'].append(split[4])
+        except ValueError:
+            write_message('\rError reading {:s}.\n'.format(csv.name))
+            continue
+        except:
+            write_message('Oops, I can\'t read {:s}:\n\n'.format(csv.name))
+            print(sys.exc_info())
+            write_message('\n')
+            continue
         write_message('\rPlotting {:s}...'.format(csv.name))
         plot(data)
         write_message('\rFinished with {:s}.\n'.format(csv.name))
@@ -214,4 +227,4 @@ else:
 write_message('I was being verbose.\nSeriously.\n')
 if args.pause:
     write_message('Fine, I\'ll give you some extra time...')
-    time.sleep(3)
+    time.sleep(10)
