@@ -25,7 +25,7 @@ import datetime
 import time
 import sys
 import tempfile
-import console
+#import console
 import os
 
 # imports for mpl
@@ -35,7 +35,7 @@ from matplotlib import pyplot
 #matplotlib.use('SVG')
 from matplotlib.font_manager import fontManager, FontProperties
 
-terminal_width,_ = console.getTerminalSize()
+#terminal_width,_ = console.getTerminalSize()
 
 def write_message(message, level=0):
     if args.verbose:
