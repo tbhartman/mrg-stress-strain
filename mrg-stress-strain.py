@@ -55,10 +55,22 @@ parser.add_argument('input',
                     nargs='*',
                     #type=argparse.FileType('r'),
                     )
+parser.add_argument('-p', '--pause',
+                    action='store_true',
+                    dest='pause',
+                    help='Give me some time, I\'m a little slow')
+parser.add_argument('-n', '--dry-run',
+                    action='store_true',
+                    dest='dry',
+                    help='Just show files to be processed')
 parser.add_argument('-f', '--force',
                     action='store_true',
                     dest='force',
                     help='Force rewrite of old files')
+parser.add_argument('-a', '--all',
+                    action='store_true',
+                    dest='all',
+                    help='Run all files (even if not csv)')
 parser.add_argument('-V', '--verbose',
                     action='store_true',
                     dest='verbose',
@@ -78,7 +90,8 @@ ext['plot'] = 'pdf'
 def check_uptodate(filename):
     mtime={}
     basename = os.path.splitext(filename)[0]
-    mtime['csv'] = os.stat(basename + '.' + ext['csv']).st_mtime
+    #mtime['csv'] = os.stat(basename + '.' + ext['csv']).st_mtime
+    mtime['csv'] = os.stat(filename).st_mtime
     if os.path.exists(basename + '.' + ext['plot']):
         mtime['plot'] = os.stat(basename + '.' + ext['plot']).st_mtime
     else:
@@ -91,11 +104,22 @@ def check_uptodate(filename):
 regex = {}
 regex['csv'] = re.compile('\.' + ext['csv'] + '$')
 
+if args.all:
+    write_message('Skipping check for .' + ext['csv'] + ' extension...\n')
+
+def check_for_csv(filename):
+    if os.path.isdir(filename):
+        for subfile in os.listdir(filename):
+            check_for_csv(os.path.join(filename,subfile))
+    else:
+        if args.all or regex['csv'].search(filename):
+            csvs.append(filename)
+            if args.force or not check_uptodate(filename):
+                csvs_update.append(filename)
+
 for filename in args.input:
-    if regex['csv'].search(filename):
-        csvs.append(filename)
-        if args.force or not check_uptodate(filename):
-            csvs_update.append(filename)
+    check_for_csv(filename)
+            
 
 write_message(("Found {:d} " + ext['csv'].upper() + " file(s).\n").format(len(csvs)))
 write_message(("Updating {:d} " + ext['csv'].upper() + " file(s).\n").format(len(csvs_update)))
@@ -157,31 +181,37 @@ def plot(data):
 
     mpl.pyplot.savefig(data['filename'] + '.' + ext['plot'])
 
-for filename in csvs_update:
-    csv = open(filename,'r')
-    write_message('\rParsing {:s}...'.format(csv.name))
-    data = {}
-    data['filename'] = os.path.splitext(filename)[0]
-    data['datetime'] = []
-    data['load'] = []
-    data['stroke'] = []
-    data['strain'] = []
-    for line in csv:
-        split = line.split('\t')
-        this_time = float(split[0])
-        if len(data['datetime']):
-            this_time -= start_time
-            this_time *= 60*60*24
-        else:
-            start_time = this_time
-            this_time = 0
-        data['datetime'].append(this_time)
-        data['load'].append(split[1])
-        data['stroke'].append(split[2])
-        data['strain'].append(split[4])
-    write_message('\rPlotting {:s}...'.format(csv.name))
-    plot(data)
-    write_message('\rFinished with {:s}.\n'.format(csv.name))
+if args.dry:
+    write_message('Dry run, no processing...\n')
+else:
+    for filename in csvs_update:
+        csv = open(filename,'r')
+        write_message('\rParsing {:s}...'.format(csv.name))
+        data = {}
+        data['filename'] = os.path.splitext(filename)[0]
+        data['datetime'] = []
+        data['load'] = []
+        data['stroke'] = []
+        data['strain'] = []
+        for line in csv:
+            split = line.split('\t')
+            this_time = float(split[0])
+            if len(data['datetime']):
+                this_time -= start_time
+                this_time *= 60*60*24
+            else:
+                start_time = this_time
+                this_time = 0
+            data['datetime'].append(this_time)
+            data['load'].append(split[1])
+            data['stroke'].append(split[2])
+            data['strain'].append(split[4])
+        write_message('\rPlotting {:s}...'.format(csv.name))
+        plot(data)
+        write_message('\rFinished with {:s}.\n'.format(csv.name))
 
 
 write_message('I was being verbose.\nSeriously.\n')
+if args.pause:
+    write_message('Fine, I\'ll give you some extra time...')
+    time.sleep(3)
